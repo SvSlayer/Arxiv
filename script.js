@@ -139,84 +139,50 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Handles the download logic by fetching the PDF as a blob to force download.
-     * This version uses a stable CORS proxy and forces HTTPS to prevent 403 errors.
+     * FUNGSI DOWNLOAD VERSI BARU (ALTERNATIF 1)
+     * Karena server arXiv memblokir proxy, kita ubah perilakunya menjadi
+     * "Buka setiap PDF yang dipilih di tab baru".
      */
-    const handleDownload = async () => {
+    const handleDownload = () => {
         const papersToDownload = allPapers.filter(p => selectedPapers.has(p.id));
         if (papersToDownload.length === 0) {
             alert('No papers selected for download.');
             return;
         }
 
-        const sanitizeFilename = (name) => {
-            if (!name) return "untitled_paper";
-            return name.replace(/[\\/*?:"<>|]/g, "").replace(/\s+/g, '_').slice(0, 150);
-        };
-        
-        let successCount = 0;
-        let errorCount = 0;
-        
-        // Menggunakan URL proxy yang stabil
-        const proxyUrl = 'https://corsproxy.io/?';
+        // Beri peringatan kepada pengguna tentang pop-up
+        const userConfirmation = confirm(
+            `This will attempt to open ${papersToDownload.length} new tab(s).\n\nPlease ensure your browser's pop-up blocker is disabled for this site.\n\nDo you want to continue?`
+        );
 
-        for (let i = 0; i < papersToDownload.length; i++) {
-            const paper = papersToDownload[i];
-            setLoading(true, `Downloading (${i + 1}/${papersToDownload.length}): ${paper.title}`);
-
-            if (paper.pdfUrl) {
-                try {
-                    // Perbaikan Kunci: Paksa URL menggunakan HTTPS untuk menghindari eror 403
-                    const securePdfUrl = paper.pdfUrl.replace('http://', 'https://');
-                    
-                    // Buat URL yang akan di-fetch melalui proxy dengan URL yang sudah aman
-                    const proxiedPdfUrl = proxyUrl + securePdfUrl;
-
-                    // 1. Fetch data PDF dari URL yang sudah melewati proxy
-                    const response = await fetch(proxiedPdfUrl);
-                    if (!response.ok) {
-                        // Jika response tidak ok (misal 403, 404, 500), lempar eror
-                        throw new Error(`Network response was not ok. Status: ${response.status}`);
-                    }
-                    
-                    // 2. Konversi data menjadi Blob
-                    const blob = await response.blob();
-                    
-                    // 3. Buat URL sementara untuk blob
-                    const blobUrl = URL.createObjectURL(blob);
-                    
-                    // 4. Buat link, atur href, dan picu unduhan
-                    const link = document.createElement('a');
-                    link.href = blobUrl;
-                    link.download = `${sanitizeFilename(paper.title)}.pdf`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    // 5. Hapus URL sementara
-                    URL.revokeObjectURL(blobUrl);
-
-                    successCount++;
-                } catch (e) {
-                    console.error(`Failed to download "${paper.title}":`, e);
-                    errorCount++;
-                }
-            } else {
-                console.warn(`PDF not available for "${paper.title}"`);
-                errorCount++;
-            }
+        if (!userConfirmation) {
+            return;
         }
         
-        setLoading(false);
-        statusArea.textContent = `Found ${allPapers.length} unique papers.`;
-        alert(`Download process finished.\n\nSuccessful: ${successCount} file(s).\nFailed: ${errorCount} file(s).`);
+        let openCount = 0;
+        papersToDownload.forEach(paper => {
+            if (paper.pdfUrl) {
+                // Pastikan URL selalu HTTPS
+                const securePdfUrl = paper.pdfUrl.replace('http://', 'https://');
+                // Buka URL langsung di tab baru
+                window.open(securePdfUrl, '_blank');
+                openCount++;
+            }
+        });
+
+        if (openCount > 0) {
+            alert(`${openCount} paper(s) have been opened in new tabs.`);
+        } else {
+            alert('No valid PDF links found for the selected papers.');
+        }
     };
 
     // --- Helper Functions & Event Listeners ---
     
     function setLoading(isLoading, message = '') {
         searchButton.disabled = isLoading;
-        downloadButton.disabled = isLoading || selectedPapers.size === 0;
+        // Tombol download tidak perlu dinonaktifkan saat loading dengan metode baru
+        // downloadButton.disabled = isLoading || selectedPapers.size === 0;
         
         if (isLoading) {
             searchButton.classList.add('opacity-50', 'cursor-not-allowed');
