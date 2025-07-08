@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let errorCount = 0;
         
         // Define the CORS proxy URL
-        const proxyUrl = 'https://api.allorigins.win/raw?url=';
+        const proxyUrl = 'https://corsproxy.io/?';
 
         for (let i = 0; i < papersToDownload.length; i++) {
             const paper = papersToDownload[i];
