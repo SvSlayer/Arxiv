@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Handles the download logic by fetching the PDF as a blob to force download.
-     * This version uses a CORS proxy to work on a hosted server.
+     * This version uses a stable CORS proxy and forces HTTPS to prevent 403 errors.
      */
     const handleDownload = async () => {
         const papersToDownload = allPapers.filter(p => selectedPapers.has(p.id));
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let successCount = 0;
         let errorCount = 0;
         
-        // Define the CORS proxy URL
+        // Menggunakan URL proxy yang stabil
         const proxyUrl = 'https://corsproxy.io/?';
 
         for (let i = 0; i < papersToDownload.length; i++) {
@@ -166,21 +166,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (paper.pdfUrl) {
                 try {
-                    // Create the new URL that goes through the proxy
-                    // encodeURIComponent ensures the original URL is safely passed as a parameter
-                    const proxiedPdfUrl = proxyUrl + encodeURIComponent(paper.pdfUrl);
-
-                    // 1. Fetch the PDF data from the proxied URL
-                    const response = await fetch(proxiedPdfUrl);
-                    if (!response.ok) throw new Error('Network response was not ok.');
+                    // Perbaikan Kunci: Paksa URL menggunakan HTTPS untuk menghindari eror 403
+                    const securePdfUrl = paper.pdfUrl.replace('http://', 'https://');
                     
-                    // 2. Convert the data into a Blob
+                    // Buat URL yang akan di-fetch melalui proxy dengan URL yang sudah aman
+                    const proxiedPdfUrl = proxyUrl + securePdfUrl;
+
+                    // 1. Fetch data PDF dari URL yang sudah melewati proxy
+                    const response = await fetch(proxiedPdfUrl);
+                    if (!response.ok) {
+                        // Jika response tidak ok (misal 403, 404, 500), lempar eror
+                        throw new Error(`Network response was not ok. Status: ${response.status}`);
+                    }
+                    
+                    // 2. Konversi data menjadi Blob
                     const blob = await response.blob();
                     
-                    // 3. Create a temporary URL for the blob
+                    // 3. Buat URL sementara untuk blob
                     const blobUrl = URL.createObjectURL(blob);
                     
-                    // 4. Create a link, set its href, and trigger the download
+                    // 4. Buat link, atur href, dan picu unduhan
                     const link = document.createElement('a');
                     link.href = blobUrl;
                     link.download = `${sanitizeFilename(paper.title)}.pdf`;
@@ -188,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     link.click();
                     document.body.removeChild(link);
                     
-                    // 5. Clean up by revoking the temporary URL
+                    // 5. Hapus URL sementara
                     URL.revokeObjectURL(blobUrl);
 
                     successCount++;
@@ -264,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateDownloadButtonState();
             // Re-check "Select All" status
             const papersOnPage = allPapers.slice((currentPage - 1) * papersPerPage, currentPage * papersPerPage);
-            selectAllCheckbox.checked = papersOnPage.every(p => selectedPapers.has(p.id));
+            selectAllCheckbox.checked = papersOnPage.length > 0 && papersOnPage.every(p => selectedPapers.has(p.id));
         }
     });
     
