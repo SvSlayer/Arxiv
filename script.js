@@ -140,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Handles the download logic by fetching the PDF as a blob to force download.
+     * This version uses a CORS proxy to work on a hosted server.
      */
     const handleDownload = async () => {
         const papersToDownload = allPapers.filter(p => selectedPapers.has(p.id));
@@ -155,6 +156,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let successCount = 0;
         let errorCount = 0;
+        
+        // Define the CORS proxy URL
+        const proxyUrl = 'https://api.allorigins.win/raw?url=';
 
         for (let i = 0; i < papersToDownload.length; i++) {
             const paper = papersToDownload[i];
@@ -162,17 +166,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (paper.pdfUrl) {
                 try {
-                    // 1. Fetch the PDF data from the URL
-                    const response = await fetch(paper.pdfUrl);
+                    // Create the new URL that goes through the proxy
+                    // encodeURIComponent ensures the original URL is safely passed as a parameter
+                    const proxiedPdfUrl = proxyUrl + encodeURIComponent(paper.pdfUrl);
+
+                    // 1. Fetch the PDF data from the proxied URL
+                    const response = await fetch(proxiedPdfUrl);
                     if (!response.ok) throw new Error('Network response was not ok.');
                     
-                    // 2. Convert the data into a Blob (a file-like object)
+                    // 2. Convert the data into a Blob
                     const blob = await response.blob();
                     
                     // 3. Create a temporary URL for the blob
                     const blobUrl = URL.createObjectURL(blob);
                     
-                    // 4. Create a link, set its href to the blob URL, and trigger the download
+                    // 4. Create a link, set its href, and trigger the download
                     const link = document.createElement('a');
                     link.href = blobUrl;
                     link.download = `${sanitizeFilename(paper.title)}.pdf`;
@@ -227,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadButton.disabled = selectedPapers.size === 0;
     }
 
-    // Event Listeners are the same as before...
+    // Event Listeners
     searchButton.addEventListener('click', handleSearch);
     keywordsInput.addEventListener('keypress', e => e.key === 'Enter' && handleSearch());
     downloadButton.addEventListener('click', handleDownload);
@@ -254,6 +262,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = e.target.dataset.id;
             if (e.target.checked) { selectedPapers.add(id); } else { selectedPapers.delete(id); }
             updateDownloadButtonState();
+            // Re-check "Select All" status
+            const papersOnPage = allPapers.slice((currentPage - 1) * papersPerPage, currentPage * papersPerPage);
+            selectAllCheckbox.checked = papersOnPage.every(p => selectedPapers.has(p.id));
         }
     });
     
